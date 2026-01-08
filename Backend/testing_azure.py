@@ -8,22 +8,22 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Get configuration from environment variables
-url = os.getenv('REST_END_POINT')
-api_key = os.getenv('PRIMARY_KEY')
+# Get configuration from environment variables - Use HuBERT (primary)
+url = os.getenv('REST_END_POINT__HUBERT')
+api_key = os.getenv('PRIMARY_KEY__HUBERT')
 
 if not api_key:
-    raise Exception("A key should be provided to invoke the endpoint. Check your .env file.")
+    raise Exception("A key should be provided to invoke the endpoint. Check your .env file for PRIMARY_KEY__HUBERT.")
 
 if not url:
-    raise Exception("REST_END_POINT not found in .env file.")
+    raise Exception("REST_END_POINT__HUBERT not found in .env file.")
 
 # Get all audio files from Audio_files folder
 audio_folder = os.path.join(os.path.dirname(__file__), 'Audio_files')
 audio_files = sorted(glob.glob(os.path.join(audio_folder, '*.wav')))
 
 print("=" * 70)
-print("Testing Azure wav2vec2 endpoint - All Audio Files")
+print("Testing Azure HuBERT endpoint - All Audio Files")
 print("=" * 70)
 print(f"Endpoint: {url}")
 print(f"Audio folder: {audio_folder}")
