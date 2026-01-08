@@ -3,16 +3,21 @@ Audio processing API routes.
 """
 
 import time
+import uuid
 from fastapi import APIRouter, UploadFile, File, HTTPException, status
 import httpx
 
 from ..config import settings
-from ..models.schemas import IntentResponse, ErrorResponse, AudioRecordingInfo
+from ..models.schemas import IntentResponse, ErrorResponse, AudioRecordingInfo, ConfirmIntentRequest, IntentDBStats
 from ..services.azure_ml import call_azure_ml, process_ml_response
 from ..services.intent_logic import determine_status_and_action, get_ui_options
+from ..services.intent_embeddings import add_embedding, get_db_stats, get_available_intents
 from ..services.logger import log_request
 
 router = APIRouter(prefix="/api", tags=["Audio"])
+
+# Temporary storage for pending embeddings (for learning loop)
+_pending_embeddings: dict[str, list[float]] = {}
 
 
 @router.post(
@@ -117,7 +122,17 @@ async def process_audio(audio: UploadFile = File(...)):
         )
     
     # Step 5: Process ML response
-    intent, confidence, transcription = process_ml_response(ml_response)
+    intent, confidence, transcription, alternatives, embedding = process_ml_response(ml_response)
+    
+    # Store embedding for potential learning (if from HuBERT)
+    embedding_id = None
+    if embedding:
+        embedding_id = str(uuid.uuid4())
+        _pending_embeddings[embedding_id] = embedding
+        # Keep only last 100 pending embeddings
+        if len(_pending_embeddings) > 100:
+            oldest = list(_pending_embeddings.keys())[0]
+            del _pending_embeddings[oldest]
     
     # Step 6: Apply business logic
     status_result, next_action = determine_status_and_action(intent, confidence)
@@ -135,6 +150,9 @@ async def process_audio(audio: UploadFile = File(...)):
         ui_options=ui_options,
         next_action=next_action,
         transcription=transcription if transcription else None,
+        alternatives=alternatives if alternatives else None,
+        embedding_id=embedding_id,
+        model_used=ml_response.get("model_used"),
     )
 
 
@@ -177,3 +195,73 @@ async def get_audio_requirements():
         channels=1,
         bit_depth=16,
     )
+
+
+@router.post(
+    "/audio/confirm",
+    tags=["Learning"],
+)
+async def confirm_intent(embedding_id: str, intent: str):
+    """
+    Confirm an intent to add the embedding to the learning database.
+    
+    Called when user confirms intent (blink = YES or caregiver tap).
+    This is the learning loop - the system learns from confirmed intents.
+    
+    Args:
+        embedding_id: The embedding_id from the previous /audio response
+        intent: The confirmed intent (must be one of the allowed intents)
+    """
+    # Validate intent
+    allowed_intents = get_available_intents()
+    if intent not in allowed_intents:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "invalid_intent", "message": f"Intent must be one of: {allowed_intents}"},
+        )
+    
+    # Get pending embedding
+    if embedding_id not in _pending_embeddings:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "embedding_not_found", "message": "Embedding expired or not found"},
+        )
+    
+    embedding = _pending_embeddings.pop(embedding_id)
+    
+    # Add to database
+    success = add_embedding(intent, embedding)
+    
+    if success:
+        return {"status": "ok", "message": f"Learned: {intent}", "db_stats": get_db_stats()}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "learn_failed", "message": "Failed to store embedding"},
+        )
+
+
+@router.get(
+    "/audio/intents",
+    response_model=IntentDBStats,
+    tags=["Learning"],
+)
+async def get_intents_stats():
+    """
+    Get available intents and how many samples each has.
+    
+    Use this to check if the system has enough training data.
+    Recommended: 2-3 samples per intent minimum.
+    """
+    return IntentDBStats(intents=get_db_stats())
+
+
+@router.get(
+    "/audio/intents/list",
+    tags=["Learning"],
+)
+async def list_available_intents():
+    """
+    Get list of available intents that can be detected.
+    """
+    return {"intents": get_available_intents()}

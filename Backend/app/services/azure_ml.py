@@ -9,6 +9,7 @@ from fastapi import HTTPException, status
 
 from ..config import settings
 from .intent_logic import detect_intent_from_transcription
+from .intent_embeddings import predict_intent, INTENTS
 
 
 async def _call_single_endpoint(audio_base64: str, scoring_url: str, api_key: str, model_name: str) -> dict:
@@ -117,39 +118,45 @@ async def call_azure_ml(audio_bytes: bytes) -> dict:
     )
 
 
-def process_ml_response(ml_response: dict) -> tuple[str, float, str]:
+def process_ml_response(ml_response: dict) -> tuple[str, float, str, list[str], list[float]]:
     """
     Process Azure ML response and extract intent/confidence.
     
     Handles multiple response formats:
-    - Option A (MVP): {"embedding_dim": 768} or {"transcription": "..."}
-    - Option B: {"intent": "HELP", "confidence": 0.92}
+    - Embeddings: {"embeddings": [...]} -> cosine similarity matching
+    - Transcription: {"transcription": "..."} -> keyword matching
+    - Direct intent: {"intent": "HELP", "confidence": 0.92}
     
     Args:
         ml_response: Response from Azure ML endpoint
         
     Returns:
-        tuple: (intent, confidence, transcription)
+        tuple: (intent, confidence, transcription, alternatives, embedding)
     """
     transcription = ""
+    alternatives = []
+    embedding = []
     
-    # Option B: Direct intent response
+    # HuBERT embeddings response - use cosine similarity
+    if "embeddings" in ml_response:
+        embedding = ml_response["embeddings"]
+        print(f"[DEBUG] Got embedding with {len(embedding)} dimensions")
+        intent, confidence, alternatives = predict_intent(embedding)
+        return intent, confidence, "", alternatives, embedding
+    
+    # Direct intent response
     if "intent" in ml_response and "confidence" in ml_response:
-        return ml_response["intent"], float(ml_response["confidence"]), ""
+        return ml_response["intent"], float(ml_response["confidence"]), "", [], []
     
-    # Transcription-based response (current format)
+    # Transcription-based response (Wav2Vec)
     if "transcription" in ml_response:
         transcription = ml_response["transcription"]
-        print(f"[DEBUG] Azure ML transcription: '{transcription}'")  # Debug log
+        print(f"[DEBUG] Azure ML transcription: '{transcription}'")
         intent, confidence = detect_intent_from_transcription(transcription)
-        return intent, confidence, transcription
-    
-    # Option A: Embedding only (fallback to unknown)
-    if "embedding_dim" in ml_response:
-        return "UNKNOWN", 0.5, ""
+        return intent, confidence, transcription, [], []
     
     # Unknown response format
-    return "UNKNOWN", 0.3, ""
+    return "UNKNOWN", 0.0, "", INTENTS[:3], []
 
 
 async def check_ml_endpoint_health() -> dict:
