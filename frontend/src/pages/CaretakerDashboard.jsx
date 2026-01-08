@@ -181,19 +181,19 @@ export default function CaretakerDashboard() {
       {/* Stats Bar */}
       <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <NeumorphicCard className="text-center py-4">
-          <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{patients.length}</div>
+          <div className="text-3xl font-bold text-slate-700 dark:text-slate-200">{patients.length}</div>
           <div className="text-sm text-neu-text dark:text-neu-text-dark">Patients</div>
         </NeumorphicCard>
         <NeumorphicCard className="text-center py-4">
-          <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">{unreadCount}</div>
+          <div className="text-3xl font-bold text-slate-700 dark:text-slate-200">{unreadCount}</div>
           <div className="text-sm text-neu-text dark:text-neu-text-dark">Unread</div>
         </NeumorphicCard>
         <NeumorphicCard className="text-center py-4">
-          <div className="text-3xl font-bold text-green-600 dark:text-green-400">{notifications.length}</div>
+          <div className="text-3xl font-bold text-slate-700 dark:text-slate-200">{notifications.length}</div>
           <div className="text-sm text-neu-text dark:text-neu-text-dark">Total Alerts</div>
         </NeumorphicCard>
         <NeumorphicCard className="text-center py-4">
-          <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+          <div className="text-3xl font-bold text-slate-700 dark:text-slate-200">
             {notifications.filter(n => n.intent === 'EMERGENCY').length}
           </div>
           <div className="text-sm text-neu-text dark:text-neu-text-dark">Emergencies</div>
@@ -207,8 +207,8 @@ export default function CaretakerDashboard() {
             onClick={() => setSelectedTab('notifications')}
             className={`px-6 py-3 rounded-xl font-semibold transition-all ${
               selectedTab === 'notifications'
-                ? 'bg-blue-500 text-white shadow-lg'
-                : 'bg-neu-base dark:bg-neu-base-dark shadow-neu-flat dark:shadow-neu-flat-dark text-slate-600 dark:text-slate-300'
+                ? 'bg-neu-base dark:bg-neu-base-dark shadow-neu-pressed dark:shadow-neu-pressed-dark text-slate-700 dark:text-slate-200'
+                : 'bg-neu-base dark:bg-neu-base-dark shadow-neu-flat dark:shadow-neu-flat-dark text-slate-500 dark:text-slate-400'
             }`}
           >
             Notifications {unreadCount > 0 && `(${unreadCount})`}
@@ -217,8 +217,8 @@ export default function CaretakerDashboard() {
             onClick={() => setSelectedTab('patients')}
             className={`px-6 py-3 rounded-xl font-semibold transition-all ${
               selectedTab === 'patients'
-                ? 'bg-blue-500 text-white shadow-lg'
-                : 'bg-neu-base dark:bg-neu-base-dark shadow-neu-flat dark:shadow-neu-flat-dark text-slate-600 dark:text-slate-300'
+                ? 'bg-neu-base dark:bg-neu-base-dark shadow-neu-pressed dark:shadow-neu-pressed-dark text-slate-700 dark:text-slate-200'
+                : 'bg-neu-base dark:bg-neu-base-dark shadow-neu-flat dark:shadow-neu-flat-dark text-slate-500 dark:text-slate-400'
             }`}
           >
             My Patients
@@ -238,7 +238,11 @@ export default function CaretakerDashboard() {
             >
               {notifications.length === 0 ? (
                 <NeumorphicCard className="text-center py-12">
-                  <div className="text-6xl mb-4">🔔</div>
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-neu-base dark:bg-neu-base-dark shadow-neu-pressed dark:shadow-neu-pressed-dark flex items-center justify-center">
+                    <svg className="w-8 h-8 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                  </div>
                   <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-100 mb-2">
                     No notifications yet
                   </h3>
@@ -312,7 +316,7 @@ export default function CaretakerDashboard() {
               <div className="flex justify-end mb-4">
                 <Button
                   onClick={handleAddPatient}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl flex items-center gap-2"
+                  className="bg-neu-base dark:bg-neu-base-dark shadow-neu-btn dark:shadow-neu-btn-dark hover:shadow-neu-flat dark:hover:shadow-neu-flat-dark text-slate-600 dark:text-slate-300 px-6 py-3 rounded-xl flex items-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -323,7 +327,11 @@ export default function CaretakerDashboard() {
 
               {patients.length === 0 ? (
                 <NeumorphicCard className="text-center py-12">
-                  <div className="text-6xl mb-4">👥</div>
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-neu-base dark:bg-neu-base-dark shadow-neu-pressed dark:shadow-neu-pressed-dark flex items-center justify-center">
+                    <svg className="w-8 h-8 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                  </div>
                   <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-100 mb-2">
                     No patients yet
                   </h3>
@@ -336,8 +344,8 @@ export default function CaretakerDashboard() {
                   {patients.map((patient) => (
                     <NeumorphicCard key={patient.id}>
                       <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
-                          <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        <div className="w-14 h-14 rounded-full bg-neu-base dark:bg-neu-base-dark shadow-neu-pressed dark:shadow-neu-pressed-dark flex items-center justify-center">
+                          <span className="text-2xl font-bold text-slate-500 dark:text-slate-400">
                             {patient.name.charAt(0).toUpperCase()}
                           </span>
                         </div>

@@ -210,7 +210,7 @@ def _combine_predictions(
         return wav2vec_intent, wav2vec_confidence * 0.85
 
 
-def process_ml_response(ml_response: dict) -> tuple[str, float, str, list[str], list[float]]:
+def process_ml_response(ml_response: dict) -> tuple[str, float, str, list[str], list[float], list[tuple[str, float]]]:
     """
     Process Azure ML response and extract intent/confidence.
     
@@ -224,11 +224,12 @@ def process_ml_response(ml_response: dict) -> tuple[str, float, str, list[str], 
         ml_response: Response from Azure ML endpoint
         
     Returns:
-        tuple: (intent, confidence, transcription, alternatives, embedding)
+        tuple: (intent, confidence, transcription, alternatives, embedding, top_predictions)
     """
     transcription = ""
     alternatives = []
     embedding = []
+    top_predictions = []
     
     # Hybrid response - combine both models
     if "hubert_result" in ml_response or "wav2vec_result" in ml_response:
@@ -238,25 +239,27 @@ def process_ml_response(ml_response: dict) -> tuple[str, float, str, list[str], 
     if "embeddings" in ml_response:
         embedding = ml_response["embeddings"]
         print(f"[DEBUG] Got embedding with {len(embedding)} dimensions")
-        intent, confidence, alternatives = predict_intent(embedding)
-        return intent, confidence, "", alternatives, embedding
+        intent, confidence, alternatives, top_predictions = predict_intent(embedding)
+        return intent, confidence, "", alternatives, embedding, top_predictions
     
     # Direct intent response
     if "intent" in ml_response and "confidence" in ml_response:
-        return ml_response["intent"], float(ml_response["confidence"]), "", [], []
+        intent = ml_response["intent"]
+        confidence = float(ml_response["confidence"])
+        return intent, confidence, "", [], [], [(intent, confidence)]
     
     # Transcription-based response (Wav2Vec)
     if "transcription" in ml_response:
         transcription = ml_response["transcription"]
         print(f"[DEBUG] Azure ML transcription: '{transcription}'")
         intent, confidence = detect_intent_from_transcription(transcription)
-        return intent, confidence, transcription, [], []
+        return intent, confidence, transcription, [], [], [(intent, confidence)]
     
     # Unknown response format
-    return "UNKNOWN", 0.0, "", INTENTS[:3], []
+    return "UNKNOWN", 0.0, "", INTENTS[:3], [], [("UNKNOWN", 0.0)]
 
 
-def _process_hybrid_response(ml_response: dict) -> tuple[str, float, str, list[str], list[float]]:
+def _process_hybrid_response(ml_response: dict) -> tuple[str, float, str, list[str], list[float], list[tuple[str, float]]]:
     """
     Process hybrid response combining HuBERT and Wav2Vec predictions.
     """
@@ -268,11 +271,12 @@ def _process_hybrid_response(ml_response: dict) -> tuple[str, float, str, list[s
     transcription = ""
     embedding = []
     alternatives = []
+    top_predictions = []
     
     # Process HuBERT result
     if hubert_result and "embeddings" in hubert_result:
         embedding = hubert_result["embeddings"]
-        hubert_intent, hubert_conf, alternatives = predict_intent(embedding)
+        hubert_intent, hubert_conf, alternatives, top_predictions = predict_intent(embedding)
         print(f"[DEBUG] HuBERT prediction: {hubert_intent} ({hubert_conf:.2f})")
     
     # Process Wav2Vec result
@@ -283,11 +287,11 @@ def _process_hybrid_response(ml_response: dict) -> tuple[str, float, str, list[s
     
     # If only one model worked, use it
     if hubert_intent == "UNKNOWN" and wav2vec_intent != "UNKNOWN":
-        return wav2vec_intent, wav2vec_conf, transcription, [], embedding
+        return wav2vec_intent, wav2vec_conf, transcription, [], embedding, [(wav2vec_intent, wav2vec_conf)]
     if wav2vec_intent == "UNKNOWN" and hubert_intent != "UNKNOWN":
-        return hubert_intent, hubert_conf, transcription, alternatives, embedding
+        return hubert_intent, hubert_conf, transcription, alternatives, embedding, top_predictions
     if hubert_intent == "UNKNOWN" and wav2vec_intent == "UNKNOWN":
-        return "UNKNOWN", 0.0, transcription, INTENTS[:3], embedding
+        return "UNKNOWN", 0.0, transcription, INTENTS[:3], embedding, [("UNKNOWN", 0.0)]
     
     # Both models produced results - combine them
     final_intent, final_conf = _combine_predictions(
@@ -295,11 +299,18 @@ def _process_hybrid_response(ml_response: dict) -> tuple[str, float, str, list[s
         wav2vec_intent, wav2vec_conf
     )
     
+    # Update top predictions with combined result
+    if top_predictions:
+        # Replace first prediction with combined result
+        top_predictions[0] = (final_intent, final_conf)
+    else:
+        top_predictions = [(final_intent, final_conf)]
+    
     print(f"[DEBUG] Hybrid prediction: {final_intent} ({final_conf:.2f})")
     print(f"[DEBUG]   HuBERT: {hubert_intent} ({hubert_conf:.2f})")
     print(f"[DEBUG]   Wav2Vec: {wav2vec_intent} ({wav2vec_conf:.2f}) - '{transcription}'")
     
-    return final_intent, final_conf, transcription, alternatives, embedding
+    return final_intent, final_conf, transcription, alternatives, embedding, top_predictions
 
 
 async def check_ml_endpoint_health() -> dict:

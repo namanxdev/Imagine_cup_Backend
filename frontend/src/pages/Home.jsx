@@ -244,6 +244,7 @@ export default function Home() {
                         intent={result.intent} 
                         confidence={result.confidence}
                         transcription={result.transcription}
+                        topPredictions={result.top_predictions}
                     />
                     
                     {/* Feedback Section - YES/NO buttons */}

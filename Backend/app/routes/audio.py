@@ -131,7 +131,7 @@ async def process_audio(
         )
     
     # Step 5: Process ML response
-    intent, confidence, transcription, alternatives, embedding = process_ml_response(ml_response)
+    intent, confidence, transcription, alternatives, embedding, top_predictions = process_ml_response(ml_response)
     
     # Store embedding for potential learning (if from HuBERT)
     embedding_id = None
@@ -151,6 +151,13 @@ async def process_audio(
     latency_ms = int((time.time() - start_time) * 1000)
     log_request(intent, confidence, status_result, latency_ms)
     
+    # Convert top_predictions to schema format
+    from ..models.schemas import TopPrediction
+    top_preds = [
+        TopPrediction(intent=pred[0], confidence=round(pred[1], 2))
+        for pred in top_predictions[:3]
+    ] if top_predictions else None
+    
     # Step 7: Return structured JSON
     return IntentResponse(
         intent=intent,
@@ -162,6 +169,7 @@ async def process_audio(
         alternatives=alternatives if alternatives else None,
         embedding_id=embedding_id,
         model_used=ml_response.get("model_used"),
+        top_predictions=top_preds,
     )
 
 

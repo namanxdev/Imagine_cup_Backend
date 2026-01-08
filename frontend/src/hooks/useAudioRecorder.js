@@ -4,6 +4,7 @@ export function useAudioRecorder() {
   const [isRecording, setIsRecording] = useState(false)
   const [audioBlob, setAudioBlob] = useState(null)
   const [error, setError] = useState(null)
+  const [audioStream, setAudioStream] = useState(null)
 
   const audioContextRef = useRef(null)
   const processorRef = useRef(null)
@@ -26,6 +27,7 @@ export function useAudioRecorder() {
         } 
       })
       streamRef.current = stream
+      setAudioStream(stream)
 
       const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 })
       audioContextRef.current = audioContext
@@ -82,6 +84,8 @@ export function useAudioRecorder() {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop())
     }
+    
+    setAudioStream(null)
 
     // Process gathered chunks into WAV
     const wavBlob = encodeWAV(chunksRef.current, 16000)
@@ -105,7 +109,8 @@ export function useAudioRecorder() {
     audioBlob,
     error,
     startRecording,
-    stopRecording
+    stopRecording,
+    audioStream
   }
 }
 

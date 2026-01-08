@@ -8,7 +8,7 @@ import ListeningWave from '../components/app/ListeningWave'
 import IntentCard from '../components/app/IntentCard'
 import ActionButtons from '../components/app/ActionButtons'
 import FeedbackButtons from '../components/app/FeedbackButtons'
-import DiagramLayout from '../components/app/DiagramLayout'
+import AudioVisualizer from '../components/app/AudioVisualizer'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import NeumorphicCard from '../components/ui/NeumorphicCard'
 import { useAudioRecorder } from '../hooks/useAudioRecorder'
@@ -39,11 +39,8 @@ export default function PatientDashboard() {
   const [feedbackResult, setFeedbackResult] = useState(null)
   const [notificationSent, setNotificationSent] = useState(false)
   
-  const { startRecording, stopRecording, isRecording, audioBlob, error: recorderError } = useAudioRecorder()
+  const { startRecording, stopRecording, isRecording, audioBlob, audioStream, error: recorderError } = useAudioRecorder()
   const { toast } = useToast()
-
-  // Steps for the Diagram: 0=Input, 1=Encoder, 2=Classifier, 3=Output
-  const [diagramStep, setDiagramStep] = useState(0)
 
   // Check user session on mount
   useEffect(() => {
@@ -75,16 +72,6 @@ export default function PatientDashboard() {
       console.error('Failed to load caretakers:', err)
     }
   }
-
-  useEffect(() => {
-    switch (appState) {
-        case 'idle': setDiagramStep(0); break;
-        case 'recording': setDiagramStep(1); break;
-        case 'processing': setDiagramStep(2); break;
-        case 'result': setDiagramStep(3); break;
-        case 'error': setDiagramStep(0); break;
-    }
-  }, [appState]);
 
   useEffect(() => {
     if (recorderError) {
@@ -270,7 +257,7 @@ export default function PatientDashboard() {
           <ThemeToggle />
           <Button
             onClick={handleLogout}
-            className="bg-neu-base dark:bg-neu-base-dark shadow-neu-flat dark:shadow-neu-flat-dark hover:shadow-neu-pressed text-slate-600 dark:text-slate-300 px-3 py-2 rounded-xl text-sm"
+            className="bg-neu-base dark:bg-neu-base-dark shadow-neu-btn dark:shadow-neu-btn-dark hover:shadow-neu-flat dark:hover:shadow-neu-flat-dark active:shadow-neu-pressed dark:active:shadow-neu-pressed-dark text-slate-500 dark:text-slate-400 px-3 py-2 rounded-xl text-sm transition-all"
           >
             Logout
           </Button>
@@ -291,17 +278,14 @@ export default function PatientDashboard() {
           onClick={handleAddCaretaker}
           className="mt-2 md:mt-0 flex items-center gap-2 px-4 py-2 rounded-xl bg-neu-base dark:bg-neu-base-dark shadow-neu-flat dark:shadow-neu-flat-dark hover:shadow-neu-pressed transition-all"
         >
-          <span className="text-2xl">👥</span>
           <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
             {caretakers.length} Caretaker{caretakers.length !== 1 ? 's' : ''}
           </span>
         </button>
       </motion.header>
 
-      {/* System Diagram */}
-      <div className="w-full max-w-[1400px] flex-shrink-0 mb-4 scale-90 origin-top">
-        <DiagramLayout activeStep={diagramStep} />
-      </div>
+      {/* Audio Visualizer */}
+      <AudioVisualizer isRecording={isRecording} audioStream={audioStream} />
 
       {/* Main Interaction Area */}
       <main className="w-full max-w-2xl flex flex-col items-center justify-center flex-grow">
@@ -391,6 +375,7 @@ export default function PatientDashboard() {
                         intent={result.intent} 
                         confidence={result.confidence}
                         transcription={result.transcription}
+                        topPredictions={result.top_predictions}
                     />
                     
                     {/* Feedback Section */}
@@ -410,7 +395,7 @@ export default function PatientDashboard() {
                  <div className="mt-8 text-center">
                     <button 
                         onClick={resetSession}
-                        className="text-sm text-neu-text dark:text-neu-text-dark hover:text-primary dark:hover:text-blue-400 transition-colors hover:underline underline-offset-4"
+                        className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
                     >
                         Start New Session
                     </button>
@@ -427,8 +412,8 @@ export default function PatientDashboard() {
               exit={{ opacity: 0, scale: 0.9 }}
               className="flex flex-col items-center justify-center text-center"
             >
-              <div className="w-20 h-20 mb-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <svg className="w-10 h-10 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-20 h-20 mb-6 rounded-full bg-neu-base dark:bg-neu-base-dark shadow-neu-pressed dark:shadow-neu-pressed-dark flex items-center justify-center">
+                <svg className="w-10 h-10 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
@@ -439,13 +424,13 @@ export default function PatientDashboard() {
                 The system will learn from this feedback.
               </p>
               {feedbackResult && (
-                <p className="text-sm text-green-600 dark:text-green-400 mb-6">
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
                   {feedbackResult.message}
                 </p>
               )}
               <Button
                 onClick={resetSession}
-                className="bg-neu-base dark:bg-neu-base-dark text-slate-700 dark:text-slate-200 shadow-neu-flat dark:shadow-neu-flat-dark hover:shadow-neu-pressed px-8 py-4 rounded-2xl font-semibold"
+                className="bg-neu-base dark:bg-neu-base-dark text-slate-600 dark:text-slate-300 shadow-neu-btn dark:shadow-neu-btn-dark hover:shadow-neu-flat dark:hover:shadow-neu-flat-dark active:shadow-neu-pressed dark:active:shadow-neu-pressed-dark px-8 py-4 rounded-2xl font-semibold transition-all"
               >
                 Start New Session
               </Button>

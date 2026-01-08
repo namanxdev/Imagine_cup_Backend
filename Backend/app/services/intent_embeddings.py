@@ -157,7 +157,7 @@ def _calibrate_confidence(raw_score: float, margin: float, num_samples: int) -> 
     return max(0.0, min(1.0, confidence))
 
 
-def predict_intent(embedding: list[float]) -> tuple[str, float, list[str]]:
+def predict_intent(embedding: list[float]) -> tuple[str, float, list[str], list[tuple[str, float]]]:
     """
     Predict intent using advanced similarity techniques optimized for aphasia speech.
     
@@ -170,7 +170,8 @@ def predict_intent(embedding: list[float]) -> tuple[str, float, list[str]]:
         embedding: 768-dimensional HuBERT embedding
         
     Returns:
-        tuple: (best_intent, confidence, alternatives)
+        tuple: (best_intent, confidence, alternatives, top_predictions)
+               top_predictions is list of (intent, confidence) tuples for top 3
     """
     embedding_arr = np.array(embedding)
     
@@ -213,33 +214,44 @@ def predict_intent(embedding: list[float]) -> tuple[str, float, list[str]]:
     if not scores:
         # No samples stored yet - return unknown with suggestions
         print("[WARNING] No trained intents in database - classification unavailable")
-        return "UNKNOWN", 0.0, INTENTS[:3]
+        return "UNKNOWN", 0.0, INTENTS[:3], [("UNKNOWN", 0.0)]
     
     # Sort by score
     sorted_intents = sorted(scores.items(), key=lambda x: x[1], reverse=True)
     
-    best_intent, best_score = sorted_intents[0]
-    second_score = sorted_intents[1][1] if len(sorted_intents) > 1 else 0.0
+    # Calibrate confidence for ALL intents first
+    calibrated_predictions = []
+    for i, (intent, raw_score) in enumerate(sorted_intents):
+        num_samples = len(_intent_db.get(intent, []))
+        # Calculate margin to next prediction
+        if i + 1 < len(sorted_intents):
+            next_score = sorted_intents[i + 1][1]
+        else:
+            next_score = 0.0
+        margin = raw_score - next_score
+        calibrated = _calibrate_confidence(raw_score, margin, num_samples)
+        calibrated_predictions.append((intent, calibrated))
     
-    # Calculate margin between top-2 predictions
-    margin = best_score - second_score
+    # RE-SORT by calibrated confidence (this fixes the ordering issue)
+    calibrated_predictions.sort(key=lambda x: x[1], reverse=True)
     
-    # Calibrate confidence
-    num_samples = len(_intent_db.get(best_intent, []))
-    confidence = _calibrate_confidence(best_score, margin, num_samples)
+    # Take top 3
+    top_predictions = calibrated_predictions[:3]
     
-    # Get alternatives (next 2 best)
-    alternatives = [intent for intent, _ in sorted_intents[1:4]]
+    # Best prediction
+    best_intent = top_predictions[0][0] if top_predictions else "UNKNOWN"
+    confidence = top_predictions[0][1] if top_predictions else 0.0
+    
+    # Get alternatives (next 2 best intents as strings)
+    alternatives = [intent for intent, _ in top_predictions[1:4]]
     
     # Debug logging
     details = knn_details.get(best_intent, {})
     print(f"[DEBUG] Intent prediction: {best_intent}")
-    print(f"[DEBUG]   Raw score: {best_score:.3f}, Calibrated: {confidence:.3f}")
-    print(f"[DEBUG]   Centroid: {details.get('centroid', 0):.3f}, KNN: {details.get('knn', 0):.3f}, Max: {details.get('max', 0):.3f}")
-    print(f"[DEBUG]   Margin: {margin:.3f}, Samples: {num_samples}")
-    print(f"[DEBUG]   Alternatives: {alternatives}")
+    print(f"[DEBUG]   Calibrated confidence: {confidence:.3f}")
+    print(f"[DEBUG]   Top 3: {top_predictions}")
     
-    return best_intent, confidence, alternatives
+    return best_intent, confidence, alternatives, top_predictions
 
 
 def predict_intent_with_details(embedding: list[float]) -> dict:
