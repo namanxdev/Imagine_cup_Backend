@@ -13,7 +13,21 @@ class IntentResponse(BaseModel):
     status: str
     ui_options: list[str]
     next_action: str
-    transcription: Optional[str] = None  # Debug: show what was heard
+    transcription: Optional[str] = None  # For Wav2Vec
+    alternatives: Optional[list[str]] = None  # For low confidence
+    embedding_id: Optional[str] = None  # To reference for learning
+    model_used: Optional[str] = None  # Which model was used
+
+
+class ConfirmIntentRequest(BaseModel):
+    """Request to confirm an intent (learning loop)."""
+    intent: str
+    embedding: list[float]  # 768-d embedding to store
+
+
+class IntentDBStats(BaseModel):
+    """Stats about the intent embedding database."""
+    intents: dict[str, int]  # intent -> count of samples
 
 
 class HealthResponse(BaseModel):

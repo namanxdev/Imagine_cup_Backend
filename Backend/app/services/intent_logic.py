@@ -12,6 +12,11 @@ UI_OPTIONS = {
     "WATER": ["Confirm Water", "Cancel"],
     "YES": ["OK"],
     "NO": ["OK"],
+    "PAIN": ["Confirm Pain", "Where?", "Cancel"],
+    "BATHROOM": ["Confirm Bathroom", "Cancel"],
+    "TIRED": ["Confirm Rest", "Cancel"],
+    "COLD": ["Confirm Cold", "Cancel"],
+    "HOT": ["Confirm Hot", "Cancel"],
     "UNKNOWN": ["Repeat", "Cancel"],
 }
 
@@ -82,6 +87,45 @@ INTENT_KEYWORDS = {
     # Care-related (maps to HELP)
     "care": "HELP",
     "caregiver": "HELP",
+    
+    # Pain-related
+    "pain": "PAIN",
+    "hurt": "PAIN",
+    "hurts": "PAIN",
+    "hurting": "PAIN",
+    "ache": "PAIN",
+    "sore": "PAIN",
+    "ouch": "PAIN",
+    "ow": "PAIN",
+    
+    # Bathroom-related
+    "bathroom": "BATHROOM",
+    "toilet": "BATHROOM",
+    "potty": "BATHROOM",
+    "pee": "BATHROOM",
+    "restroom": "BATHROOM",
+    
+    # Tired/Sleep-related
+    "tired": "TIRED",
+    "sleepy": "TIRED",
+    "sleep": "TIRED",
+    "rest": "TIRED",
+    "nap": "TIRED",
+    "exhausted": "TIRED",
+    "bed": "TIRED",
+    
+    # Temperature - Cold
+    "cold": "COLD",
+    "freezing": "COLD",
+    "chilly": "COLD",
+    "blanket": "COLD",
+    
+    # Temperature - Hot
+    "hot": "HOT",
+    "warm": "HOT",
+    "sweating": "HOT",
+    "sweaty": "HOT",
+    "fan": "HOT",
 }
 
 # Fuzzy patterns for garbled wav2vec2 output
