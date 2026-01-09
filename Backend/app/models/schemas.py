@@ -6,6 +6,12 @@ from typing import Optional
 from pydantic import BaseModel
 
 
+class TopPrediction(BaseModel):
+    """A single prediction with intent and confidence."""
+    intent: str
+    confidence: float
+
+
 class IntentResponse(BaseModel):
     """Response model for audio processing endpoint."""
     intent: str
@@ -17,6 +23,7 @@ class IntentResponse(BaseModel):
     alternatives: Optional[list[str]] = None  # For low confidence
     embedding_id: Optional[str] = None  # To reference for learning
     model_used: Optional[str] = None  # Which model was used
+    top_predictions: Optional[list[TopPrediction]] = None  # Top 3 predictions
 
 
 class ConfirmIntentRequest(BaseModel):

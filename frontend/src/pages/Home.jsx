@@ -1,21 +1,26 @@
 import React, { useState, useEffect } from 'react'
 import { Toaster } from '../components/ui/toaster'
 import { useToast } from '../hooks/use-toast'
+import { Button } from '../components/ui/button'
 import RecordButton from '../components/app/RecordButton'
 import ListeningWave from '../components/app/ListeningWave'
 import IntentCard from '../components/app/IntentCard'
 import ActionButtons from '../components/app/ActionButtons'
+import FeedbackButtons from '../components/app/FeedbackButtons'
 import DiagramLayout from '../components/app/DiagramLayout'
 import ThemeToggle from '../components/ui/ThemeToggle'
+import VisitorCounter from '../components/app/VisitorCounter'
 import { useAudioRecorder } from '../hooks/useAudioRecorder'
-import { sendAudioToBackend } from '../services/api'
+import { sendAudioToBackend, submitFeedback } from '../services/api'
 import { motion, AnimatePresence } from 'framer-motion'
 
 
 export default function Home() {
-  // states: idle, recording, processing, result
+  // states: idle, recording, processing, result, feedback_submitted
   const [appState, setAppState] = useState('idle') 
   const [result, setResult] = useState(null)
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
+  const [feedbackResult, setFeedbackResult] = useState(null)
   
   const { startRecording, stopRecording, isRecording, audioBlob, error: recorderError } = useAudioRecorder()
   const { toast } = useToast()
@@ -92,7 +97,51 @@ export default function Home() {
     setTimeout(() => {
         setAppState('idle')
         setResult(null)
+        setFeedbackResult(null)
     }, 2000)
+  }
+
+  const handleFeedbackSubmit = async ({ embeddingId, predictedIntent, isCorrect, correctIntent }) => {
+    if (!embeddingId) {
+      toast({
+        variant: "destructive",
+        title: "Feedback Error",
+        description: "No embedding ID available. The system may be using transcription-only mode."
+      })
+      return
+    }
+
+    setFeedbackSubmitting(true)
+    try {
+      const response = await submitFeedback(embeddingId, predictedIntent, isCorrect, correctIntent)
+      setFeedbackResult(response)
+      
+      toast({
+        title: isCorrect ? "✓ Feedback Recorded" : "✓ Correction Learned",
+        description: response.message,
+        className: "bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200"
+      })
+
+      // If correction was made, show success state
+      if (!isCorrect && correctIntent) {
+        setAppState('feedback_submitted')
+      }
+    } catch (err) {
+      console.error('Feedback error:', err)
+      toast({
+        variant: "destructive",
+        title: "Feedback Failed",
+        description: "Could not submit feedback. Please try again."
+      })
+    } finally {
+      setFeedbackSubmitting(false)
+    }
+  }
+
+  const resetSession = () => {
+    setAppState('idle')
+    setResult(null)
+    setFeedbackResult(null)
   }
 
   return (
@@ -110,7 +159,7 @@ export default function Home() {
 
         <div className="text-center w-full md:text-left md:w-auto mt-2 md:mt-0">
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-700 dark:text-slate-100">
-            Speech Intent System
+            VerbaOS
             </h1>
             <p className="text-neu-text dark:text-neu-text-dark mt-1 text-sm md:text-base italic font-medium">
             Powered by HuBERT + wav2vec2
@@ -195,7 +244,18 @@ export default function Home() {
                         intent={result.intent} 
                         confidence={result.confidence}
                         transcription={result.transcription}
+                        topPredictions={result.top_predictions}
                     />
+                    
+                    {/* Feedback Section - YES/NO buttons */}
+                    <FeedbackButtons
+                      embeddingId={result.embedding_id}
+                      predictedIntent={result.intent}
+                      onFeedbackSubmit={handleFeedbackSubmit}
+                      isSubmitting={feedbackSubmitting}
+                    />
+                    
+                    {/* Original action buttons */}
                     <ActionButtons 
                         intent={result.intent} 
                         onAction={handleAction} 
@@ -203,7 +263,7 @@ export default function Home() {
                 </div>
                  <div className="mt-8 text-center">
                     <button 
-                        onClick={() => setAppState('idle')}
+                        onClick={resetSession}
                         className="text-sm text-neu-text dark:text-neu-text-dark hover:text-primary dark:hover:text-blue-400 transition-colors hover:underline underline-offset-4"
                     >
                         Start New Session
@@ -212,8 +272,45 @@ export default function Home() {
              </motion.div>
           )}
 
+          {/* FEEDBACK SUBMITTED State (after correction) */}
+          {appState === 'feedback_submitted' && (
+            <motion.div
+              key="feedback_submitted"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="flex flex-col items-center justify-center text-center"
+            >
+              <div className="w-20 h-20 mb-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <svg className="w-10 h-10 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-slate-700 dark:text-slate-100 mb-2">
+                Thanks for the correction!
+              </h2>
+              <p className="text-neu-text dark:text-neu-text-dark mb-6">
+                The system will learn from this feedback.
+              </p>
+              {feedbackResult && (
+                <p className="text-sm text-green-600 dark:text-green-400 mb-6">
+                  {feedbackResult.message}
+                </p>
+              )}
+              <Button
+                onClick={resetSession}
+                className="bg-neu-base dark:bg-neu-base-dark text-slate-700 dark:text-slate-200 shadow-neu-flat dark:shadow-neu-flat-dark hover:shadow-neu-pressed px-8 py-4 rounded-2xl font-semibold"
+              >
+                Start New Session
+              </Button>
+            </motion.div>
+          )}
+
         </AnimatePresence>
       </main>
+
+      {/* Visitor Counter - Bottom Left */}
+      <VisitorCounter />
 
       <Toaster />
     </div>
