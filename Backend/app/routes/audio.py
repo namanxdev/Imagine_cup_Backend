@@ -4,7 +4,9 @@ Audio processing API routes.
 
 import time
 import uuid
-from fastapi import APIRouter, UploadFile, File, HTTPException, status, Query
+from fastapi import APIRouter, UploadFile, File, HTTPException, status, Query, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 import httpx
 
 from ..config import settings
@@ -19,6 +21,9 @@ from ..services.logger import log_request
 
 router = APIRouter(prefix="/api", tags=["Audio"])
 
+# Initialize limiter for this router
+limiter = Limiter(key_func=get_remote_address)
+
 # Temporary storage for pending embeddings (for learning loop)
 _pending_embeddings: dict[str, list[float]] = {}
 
@@ -32,7 +37,9 @@ _pending_embeddings: dict[str, list[float]] = {}
         503: {"model": ErrorResponse, "description": "ML service unavailable"},
     },
 )
+@limiter.limit("10/minute")  # 10 audio requests per minute per IP
 async def process_audio(
+    request: Request,
     audio: UploadFile = File(...),
     hybrid_mode: bool = Query(False, description="Use both HuBERT and Wav2Vec for better accuracy")
 ):

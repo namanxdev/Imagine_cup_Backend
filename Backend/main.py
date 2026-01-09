@@ -7,14 +7,21 @@ Run with: uvicorn main:app --reload --host 127.0.0.1 --port 8000
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.routes import audio_router, health_router
 from app.routes.users_db import router as users_db_router
 from app.services.postgres_db import init_db, close_db
+
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager
@@ -74,10 +81,20 @@ with appropriate UI actions for caregivers.
     lifespan=lifespan,
 )
 
+# Add rate limiter to app state
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # CORS middleware for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure specific origins for production
+    allow_origins=[
+        "https://verbao.vercel.app",
+        "http://localhost:5173",  # Vite dev server
+        "http://localhost:3000",  # Alternative local port
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
