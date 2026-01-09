@@ -52,7 +52,6 @@ geopy==2.4.1
 google-auth==2.43.0
 google-genai==1.54.0
 greenlet==3.2.4
-gTTS==2.5.4
 h11==0.16.0
 h5py==3.14.0
 hf-xet==1.2.0
